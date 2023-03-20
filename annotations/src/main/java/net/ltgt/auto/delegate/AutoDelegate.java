@@ -28,7 +28,7 @@ import java.lang.annotation.Target;
  * <p>A simple example:
  *
  * <pre>
- *    &#064;AutoDelegate(Query.class)
+ *    &#064;AutoDelegate(&#064;Delegate(value=Query.class, name="query"))
  *    public class ForwardingQuery extends AutoDelegate_ForwardingQuery {
  *      protected ForwardingQuery(Query query) {
  *        super(query);
@@ -44,7 +44,7 @@ public @interface AutoDelegate {
    *
    * @return The interfaces to be implemented by the generated class.
    */
-  Class<?>[] value();
+  Delegate[] value();
 
   /**
    * The class to be extended by the generated class.
@@ -52,4 +52,23 @@ public @interface AutoDelegate {
    * @return The class to be extended by the generated class.
    */
   Class<?> extend() default Object.class;
+
+  /** Specifies an interface to be implemented by the generated class. */
+  @Target({})
+  @Retention(RetentionPolicy.SOURCE)
+  @interface Delegate {
+    /**
+     * The interface to be implemented by the generated class.
+     *
+     * @return The interface to be implemented by the generated class.
+     */
+    Class<?> value();
+
+    /**
+     * The protected field name holding the delegate in the generated class.
+     *
+     * @return The protected field name holding the delegate in the generated class.
+     */
+    String name();
+  }
 }

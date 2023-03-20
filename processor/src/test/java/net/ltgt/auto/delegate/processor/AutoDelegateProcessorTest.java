@@ -43,8 +43,9 @@ public class AutoDelegateProcessorTest {
                     package foo.bar;
 
                     import net.ltgt.auto.delegate.AutoDelegate;
+                    import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-                    @AutoDelegate(I.class)
+                    @AutoDelegate(@Delegate(value = I.class, name = "i"))
                     class C extends AutoDelegate_C {
                       C(I i) {
                         super(i);
@@ -64,16 +65,16 @@ public class AutoDelegateProcessorTest {
 
                 @Generated("net.ltgt.auto.delegate.processor.AutoDelegateProcessor")
                 abstract class AutoDelegate_C implements I {
-                  private final I __I_unlikelyToConflictWithExistingMember;
+                  protected final I i;
 
-                  AutoDelegate_C(I __I_unlikelyToConflictWithExistingMember) {
+                  AutoDelegate_C(I i) {
                     super();
-                    this.__I_unlikelyToConflictWithExistingMember = __I_unlikelyToConflictWithExistingMember;
+                    this.i = i;
                   }
 
                   @Override
                   public void i() {
-                    this.__I_unlikelyToConflictWithExistingMember.i();
+                    this.i.i();
                   }
                 }
                 """));
@@ -101,8 +102,9 @@ public class AutoDelegateProcessorTest {
                     package foo.bar;
 
                     import net.ltgt.auto.delegate.AutoDelegate;
+                    import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-                    @AutoDelegate(I.class)
+                    @AutoDelegate(@Delegate(value = I.class, name = "i"))
                     class C extends AutoDelegate_C {
                       C(I i) {
                         super(i);
@@ -122,16 +124,16 @@ public class AutoDelegateProcessorTest {
 
                 @Generated("net.ltgt.auto.delegate.processor.AutoDelegateProcessor")
                 abstract class AutoDelegate_C implements I {
-                  private final I __I_unlikelyToConflictWithExistingMember;
+                  protected final I i;
 
-                  AutoDelegate_C(I __I_unlikelyToConflictWithExistingMember) {
+                  AutoDelegate_C(I i) {
                     super();
-                    this.__I_unlikelyToConflictWithExistingMember = __I_unlikelyToConflictWithExistingMember;
+                    this.i = i;
                   }
 
                   @Override
                   public void i() {
-                    this.__I_unlikelyToConflictWithExistingMember.i();
+                    this.i.i();
                   }
                 }
                 """));
@@ -177,8 +179,14 @@ public class AutoDelegateProcessorTest {
                     package foo.bar;
 
                     import net.ltgt.auto.delegate.AutoDelegate;
+                    import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-                    @AutoDelegate(value = { I.class, baz.qux.I.class }, extend = S.class)
+                    @AutoDelegate(
+                      value = {
+                        @Delegate(value = I.class, name = "i"),
+                        @Delegate(value = baz.qux.I.class, name = "i2")
+                      },
+                      extend = S.class)
                     class C extends AutoDelegate_C {
                       C(I i, baz.qux.I i2, int p1) {
                         super(i, i2, p1);
@@ -201,29 +209,29 @@ public class AutoDelegateProcessorTest {
 
                 @Generated("net.ltgt.auto.delegate.processor.AutoDelegateProcessor")
                 abstract class AutoDelegate_C extends S implements I, baz.qux.I {
-                  private final I __I_unlikelyToConflictWithExistingMember;
-                  private final baz.qux.I __I_unlikelyToConflictWithExistingMember_;
+                  protected final I i;
+                  protected final baz.qux.I i2;
 
-                  AutoDelegate_C(I __I_unlikelyToConflictWithExistingMember, baz.qux.I __I_unlikelyToConflictWithExistingMember_, int p1) {
+                  AutoDelegate_C(I i, baz.qux.I i2, int p1) {
                     super(p1);
-                    this.__I_unlikelyToConflictWithExistingMember = __I_unlikelyToConflictWithExistingMember;
-                    this.__I_unlikelyToConflictWithExistingMember_ = __I_unlikelyToConflictWithExistingMember_;
+                    this.i = i;
+                    this.i2 = i2;
                   }
 
-                  AutoDelegate_C(I __I_unlikelyToConflictWithExistingMember, baz.qux.I __I_unlikelyToConflictWithExistingMember_, int p1, boolean p2) {
+                  AutoDelegate_C(I i, baz.qux.I i2, int p1, boolean p2) {
                     super(p1, p2);
-                    this.__I_unlikelyToConflictWithExistingMember = __I_unlikelyToConflictWithExistingMember;
-                    this.__I_unlikelyToConflictWithExistingMember_ = __I_unlikelyToConflictWithExistingMember_;
+                    this.i = i;
+                    this.i2 = i2;
                   }
 
                   @Override
                   public void i() {
-                    this.__I_unlikelyToConflictWithExistingMember.i();
+                    this.i.i();
                   }
 
                   @Override
                   public boolean i(int p) {
-                    return this.__I_unlikelyToConflictWithExistingMember_.i(p);
+                    return this.i2.i(p);
                   }
                 }
                 """));
@@ -241,6 +249,7 @@ public class AutoDelegateProcessorTest {
                     package foo.bar;
 
                     import net.ltgt.auto.delegate.AutoDelegate;
+                    import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
                     class Enclosing {
                       interface I {
@@ -249,7 +258,7 @@ public class AutoDelegateProcessorTest {
                       static class S {
                         S(int p) {}
                       }
-                      @AutoDelegate(value = I.class, extend = S.class)
+                      @AutoDelegate(value = @Delegate(value = I.class, name = "i"), extend = S.class)
                       static class C extends AutoDelegate_Enclosing_C {
                         C(I i) {
                           super(i, 42);
@@ -270,14 +279,14 @@ public class AutoDelegateProcessorTest {
 
                 @Generated("net.ltgt.auto.delegate.processor.AutoDelegateProcessor")
                 abstract class AutoDelegate_Enclosing_C extends Enclosing.S implements Enclosing.I {
-                  private final Enclosing.I __I_unlikelyToConflictWithExistingMember;
-                  AutoDelegate_Enclosing_C(Enclosing.I __I_unlikelyToConflictWithExistingMember, int p) {
+                  protected final Enclosing.I i;
+                  AutoDelegate_Enclosing_C(Enclosing.I i, int p) {
                     super(p);
-                    this.__I_unlikelyToConflictWithExistingMember = __I_unlikelyToConflictWithExistingMember;
+                    this.i = i;
                   }
                   @Override
                   public void i() {
-                    this.__I_unlikelyToConflictWithExistingMember.i();
+                    this.i.i();
                   }
                 }
                 """));
@@ -292,49 +301,51 @@ public class AutoDelegateProcessorTest {
                 JavaFileObjects.forSourceString(
                     "foo.bar.I",
                     """
-                package foo.bar;
+                    package foo.bar;
 
-                public interface I {
-                  void i();
-                }
-                """),
+                    public interface I {
+                      void i();
+                    }
+                    """),
                 JavaFileObjects.forSourceString(
                     "foo.bar.C",
                     """
-                package foo.bar;
+                    package foo.bar;
 
-                import net.ltgt.auto.delegate.AutoDelegate;
+                    import net.ltgt.auto.delegate.AutoDelegate;
+                    import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-                @AutoDelegate(I.class)
-                public class C extends AutoDelegate_C {
-                  public C(I i) {
-                    super(i);
-                  }
-                }
-                """),
+                    @AutoDelegate(@Delegate(value = I.class, name = "i"))
+                    public class C extends AutoDelegate_C {
+                      public C(I i) {
+                        super(i);
+                      }
+                    }
+                    """),
                 JavaFileObjects.forSourceString(
                     "baz.qux.I",
                     """
-                package baz.qux;
+                    package baz.qux;
 
-                interface I {
-                  void i();
-                }
-                """),
+                    interface I {
+                      void i();
+                    }
+                    """),
                 JavaFileObjects.forSourceString(
                     "baz.qux.C",
                     """
-                package baz.qux;
+                    package baz.qux;
 
-                import net.ltgt.auto.delegate.AutoDelegate;
+                    import net.ltgt.auto.delegate.AutoDelegate;
+                    import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-                @AutoDelegate(value = I.class, extend = foo.bar.C.class)
-                class C extends AutoDelegate_C {
-                  C(I i, foo.bar.I i2) {
-                    super(i, i2);
-                  }
-                }
-                """));
+                    @AutoDelegate(value = @Delegate(value = I.class, name = "i2"), extend = foo.bar.C.class)
+                    class C extends AutoDelegate_C {
+                      C(I i, foo.bar.I i2) {
+                        super(i, i2);
+                      }
+                    }
+                    """));
     assertThat(compilation).succeededWithoutWarnings();
   }
 }

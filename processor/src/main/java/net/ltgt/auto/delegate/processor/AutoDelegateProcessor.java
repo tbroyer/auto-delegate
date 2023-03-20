@@ -24,7 +24,6 @@ import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.NameAllocator;
 import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
@@ -34,6 +33,7 @@ import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -185,8 +185,9 @@ public class AutoDelegateProcessor extends AbstractProcessor {
               type);
       return null;
     }
+    boolean hasError = false;
     if (!checkModifiersIfNested(type)) {
-      return null;
+      hasError = true;
     }
     ClassName targetName = autoDelegateName(type);
     if (type.getSuperclass().getKind() != TypeKind.ERROR
@@ -200,10 +201,10 @@ public class AutoDelegateProcessor extends AbstractProcessor {
               Diagnostic.Kind.ERROR,
               "[AutoDelegateSuperClass] @AutoDelegate super class must be the to-be-generated class",
               type);
-      return null;
+      hasError = true;
     }
 
-    List<TypeElement> interfaces = new ArrayList<>();
+    Map<TypeElement, String> interfaces = new LinkedHashMap<>();
     TypeElement extend = javaLangObject;
     AnnotationMirror annotation =
         type.getAnnotationMirrors().stream()
@@ -215,35 +216,18 @@ public class AutoDelegateProcessor extends AbstractProcessor {
       switch (entry.getKey().getSimpleName().toString()) {
         case "value":
           @SuppressWarnings("unchecked")
-          List<? extends AnnotationValue> values =
-              (List<? extends AnnotationValue>) entry.getValue().getValue();
-          for (AnnotationValue value : values) {
-            if (!(value.getValue() instanceof DeclaredType)
-                || ((DeclaredType) value.getValue()).getKind() != TypeKind.DECLARED) {
-              addDeferredType(type);
-              return null;
-            }
-            TypeElement element = (TypeElement) ((DeclaredType) value.getValue()).asElement();
-            if (element.getKind() != ElementKind.INTERFACE) {
-              processingEnv
-                  .getMessager()
-                  .printMessage(
-                      Diagnostic.Kind.ERROR,
-                      "[AutoDelegateInterface] @AutoDelegate class can only delegate to interfaces",
-                      type,
-                      annotation,
-                      value);
-              return null;
-            }
-            // TODO: check modifiers if nested
-            interfaces.add(element);
+          List<? extends AnnotationMirror> delegates =
+              (List<? extends AnnotationMirror>) entry.getValue().getValue();
+          for (AnnotationMirror delegate : delegates) {
+            hasError |= !validateInterface(type, delegate, interfaces);
           }
           break;
         case "extend":
           if (!(entry.getValue().getValue() instanceof DeclaredType)
               || ((DeclaredType) entry.getValue().getValue()).getKind() != TypeKind.DECLARED) {
             addDeferredType(type);
-            return null;
+            hasError = true;
+            continue;
           }
           extend = (TypeElement) ((DeclaredType) entry.getValue().getValue()).asElement();
           if (extend.getKind() != ElementKind.CLASS) {
@@ -255,13 +239,16 @@ public class AutoDelegateProcessor extends AbstractProcessor {
                     type,
                     annotation,
                     entry.getValue());
-            return null;
+            hasError = true;
+            continue;
           }
           // TODO: check modifiers if nested
           break;
       }
     }
-
+    if (hasError) {
+      return null;
+    }
     return new AutoDelegateInfo(targetName, interfaces, extend);
   }
 
@@ -314,8 +301,90 @@ public class AutoDelegateProcessor extends AbstractProcessor {
     return true;
   }
 
+  private boolean validateInterface(
+      TypeElement type, AnnotationMirror annotation, Map<TypeElement, String> interfaces) {
+    boolean hasError = false;
+    TypeElement value = null;
+    String name = null;
+    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
+        annotation.getElementValues().entrySet()) {
+      switch (entry.getKey().getSimpleName().toString()) {
+        case "value":
+          if (!(entry.getValue().getValue() instanceof DeclaredType)
+              || ((DeclaredType) entry.getValue().getValue()).getKind() != TypeKind.DECLARED) {
+            addDeferredType(type);
+            hasError = true;
+            continue;
+          }
+          value = (TypeElement) ((DeclaredType) entry.getValue().getValue()).asElement();
+          if (value.getKind() != ElementKind.INTERFACE) {
+            processingEnv
+                .getMessager()
+                .printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "[AutoDelegateInterface] @AutoDelegate class can only delegate to interfaces: "
+                        + value,
+                    type,
+                    annotation,
+                    entry.getValue());
+            hasError = true;
+            continue;
+          }
+          if (interfaces.containsKey(value)) {
+            processingEnv
+                .getMessager()
+                .printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "[AutoDelegateDuplicate] Duplicate interface specified in @AutoDelegate: "
+                        + value,
+                    type,
+                    annotation,
+                    entry.getValue());
+            hasError = true;
+            continue;
+          }
+          // TODO: check modifiers if nested
+          break;
+        case "name":
+          name = (String) entry.getValue().getValue();
+          if (!SourceVersion.isName(name) || !SourceVersion.isIdentifier(name)) {
+            processingEnv
+                .getMessager()
+                .printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "[AutoDelegateName] @AutoDelegate class delegate name must be a valid Java identifier: "
+                        + name,
+                    type,
+                    annotation,
+                    entry.getValue());
+            hasError = true;
+            continue;
+          }
+          if (interfaces.containsValue(name)) {
+            processingEnv
+                .getMessager()
+                .printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "[AutoDelegateDuplicate] Duplicate delegate name specified in @AutoDelegate: "
+                        + name,
+                    type,
+                    annotation,
+                    entry.getValue());
+            hasError = true;
+            continue;
+          }
+          break;
+      }
+    }
+    if (value == null || name == null || hasError) {
+      // The error will be reported by JavaC, or has been reported above
+      return false;
+    }
+    interfaces.put(value, name);
+    return true;
+  }
+
   private boolean processType(AutoDelegateInfo info) {
-    NameAllocator nameAllocator = new NameAllocator();
     TypeSpec.Builder classBuilder =
         TypeSpec.classBuilder(info.targetName)
             .addAnnotation(generatedAnnotation)
@@ -324,14 +393,12 @@ public class AutoDelegateProcessor extends AbstractProcessor {
             .superclass(info.extend.asType());
     List<ParameterSpec> ctorParameters = new ArrayList<>();
     CodeBlock.Builder ctorFieldInitBuilder = CodeBlock.builder();
-    for (TypeElement i : info.interfaces) {
+    for (Map.Entry<? extends TypeElement, String> entry : info.interfaces.entrySet()) {
       // TODO: handle generics
-      TypeName ti = ClassName.get(i);
+      TypeName ti = ClassName.get(entry.getKey());
       classBuilder.addSuperinterface(ti);
-      String name =
-          nameAllocator.newName(
-              "__" + i.getSimpleName() + "_unlikelyToConflictWithExistingMember", i);
-      classBuilder.addField(ti, name, Modifier.PRIVATE, Modifier.FINAL);
+      String name = entry.getValue();
+      classBuilder.addField(ti, name, Modifier.PROTECTED, Modifier.FINAL);
       ctorParameters.add(ParameterSpec.builder(ti, name).build());
       ctorFieldInitBuilder.addStatement("this.$1N = $1N", name);
     }
@@ -353,9 +420,9 @@ public class AutoDelegateProcessor extends AbstractProcessor {
               .addCode(ctorFieldInit)
               .build());
     }
-    for (TypeElement i : info.interfaces) {
+    for (Map.Entry<? extends TypeElement, String> entry : info.interfaces.entrySet()) {
       for (ExecutableElement m :
-          ElementFilter.methodsIn(processingEnv.getElementUtils().getAllMembers(i))) {
+          ElementFilter.methodsIn(processingEnv.getElementUtils().getAllMembers(entry.getKey()))) {
         if (m.getModifiers().contains(Modifier.STATIC)
             || m.getModifiers().contains(Modifier.PRIVATE)
             || javaLangObject.equals(m.getEnclosingElement())) {
@@ -367,7 +434,7 @@ public class AutoDelegateProcessor extends AbstractProcessor {
                 .addStatement(
                     "$Lthis.$N.$N($L)",
                     m.getReturnType().getKind() == TypeKind.VOID ? "" : "return ",
-                    nameAllocator.get(i),
+                    entry.getValue(),
                     m.getSimpleName(),
                     m.getParameters().stream()
                         .map(p -> CodeBlock.of("$N", p.getSimpleName()))
@@ -387,11 +454,11 @@ public class AutoDelegateProcessor extends AbstractProcessor {
 
   static class AutoDelegateInfo {
     final ClassName targetName;
-    final List<? extends TypeElement> interfaces;
+    final Map<? extends TypeElement, String> interfaces;
     final TypeElement extend;
 
     AutoDelegateInfo(
-        ClassName targetName, List<? extends TypeElement> interfaces, TypeElement extend) {
+        ClassName targetName, Map<? extends TypeElement, String> interfaces, TypeElement extend) {
       this.targetName = targetName;
       this.interfaces = interfaces;
       this.extend = extend;

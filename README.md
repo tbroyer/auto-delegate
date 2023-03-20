@@ -28,7 +28,7 @@ class BaseImpl implements Base {
   }
 }
 
-@AutoDelegate(Base.class)
+@AutoDelegate(@Delegate(value = Base.class, name = "base"))
 class Derived extends AutoDelegate_Derived {
   Derived(Base b) {
     super(b);
@@ -47,7 +47,7 @@ The `AutoDelegate_Derived` generated class looks more or less like the following
 
 ```java
 abstract class AutoDelegate_Derived implements Base {
-  private final Base base;
+  protected final Base base;
 
   AutoDelegate_Derived(Base base) {
     this.base = base;

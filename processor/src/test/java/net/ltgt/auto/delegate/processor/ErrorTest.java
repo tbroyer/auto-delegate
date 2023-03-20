@@ -31,8 +31,9 @@ public class ErrorTest {
             package foo.bar;
 
             import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-            @AutoDelegate(I.class)
+            @AutoDelegate(@Delegate(value = I.class, name = "i"))
             class C extends AutoDelegate_C {
               C(I i) {
                 super(i);
@@ -44,7 +45,7 @@ public class ErrorTest {
     assertThat(compilation)
         .hadErrorContaining("[AutoDelegateUndefined]")
         .inFile(source)
-        .onLine(6)
+        .onLine(7)
         .atColumn(1);
   }
 
@@ -57,8 +58,9 @@ public class ErrorTest {
             package foo.bar;
 
             import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-            @AutoDelegate(I.class)
+            @AutoDelegate(@Delegate(value = I.class, name = "i"))
             interface II {}
             """);
     var enumeration =
@@ -68,8 +70,9 @@ public class ErrorTest {
             package foo.bar;
 
             import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-            @AutoDelegate(I.class)
+            @AutoDelegate(@Delegate(value = I.class, name = "i"))
             enum E {}
             """);
     var annotation =
@@ -79,8 +82,9 @@ public class ErrorTest {
             package foo.bar;
 
             import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-            @AutoDelegate(I.class)
+            @AutoDelegate(@Delegate(value = I.class, name = "i"))
             @interface A {}
             """);
     var record =
@@ -90,8 +94,9 @@ public class ErrorTest {
             package foo.bar;
 
             import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-            @AutoDelegate(I.class)
+            @AutoDelegate(@Delegate(value = I.class, name = "i"))
             record R() {}
             """);
     var compilation =
@@ -115,22 +120,22 @@ public class ErrorTest {
     assertThat(compilation)
         .hadErrorContaining("[AutoDelegateWrongType]")
         .inFile(iface)
-        .onLine(6)
+        .onLine(7)
         .atColumn(1);
     assertThat(compilation)
         .hadErrorContaining("[AutoDelegateWrongType]")
         .inFile(enumeration)
-        .onLine(6)
+        .onLine(7)
         .atColumn(1);
     assertThat(compilation)
         .hadErrorContaining("[AutoDelegateWrongType]")
         .inFile(annotation)
-        .onLine(6)
+        .onLine(7)
         .atColumn(2);
     assertThat(compilation)
         .hadErrorContaining("[AutoDelegateWrongType]")
         .inFile(record)
-        .onLine(6)
+        .onLine(7)
         .atColumn(1);
   }
 
@@ -143,8 +148,9 @@ public class ErrorTest {
             package foo.bar;
 
             import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-            @AutoDelegate(I.class)
+            @AutoDelegate(@Delegate(value = I.class, name = "i"))
             class C {}
             """);
     var compilation =
@@ -164,7 +170,7 @@ public class ErrorTest {
     assertThat(compilation)
         .hadErrorContaining("[AutoDelegateSuperClass]")
         .inFile(source)
-        .onLine(6)
+        .onLine(7)
         .atColumn(1);
   }
 
@@ -177,8 +183,9 @@ public class ErrorTest {
             package foo.bar;
 
             import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-            @AutoDelegate(S.class)
+            @AutoDelegate(@Delegate(value = S.class, name = "s"))
             class C extends AutoDelegate_C {}
             """);
     var compilation =
@@ -196,8 +203,138 @@ public class ErrorTest {
     assertThat(compilation)
         .hadErrorContaining("[AutoDelegateInterface]")
         .inFile(source)
-        .onLine(5)
-        .atColumn(16);
+        .onLine(6)
+        .atColumn(34);
+  }
+
+  @Test
+  public void name() {
+    var source =
+        JavaFileObjects.forSourceString(
+            "foo.bar.C",
+            """
+            package foo.bar;
+
+            import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
+
+            @AutoDelegate({
+                @Delegate(value = I.class, name = "i.i"),
+                @Delegate(value = II.class, name = "42"),
+                @Delegate(value = III.class, name = "oops?")
+            })
+            class C extends AutoDelegate_C {
+              C(I i) {
+                super(i);
+              }
+            }
+            """);
+    var compilation =
+        javac()
+            .withProcessors(new AutoDelegateProcessor())
+            .compile(
+                JavaFileObjects.forSourceString(
+                    "foo.bar.I",
+                    """
+                    package foo.bar;
+
+                    interface I {
+                      void i();
+                    }
+                    """),
+                JavaFileObjects.forSourceString(
+                    "foo.bar.II",
+                    """
+                    package foo.bar;
+
+                    interface II {
+                      void ii();
+                    }
+                    """),
+                JavaFileObjects.forSourceString(
+                    "foo.bar.III",
+                    """
+                    package foo.bar;
+
+                    interface III {
+                      void iii();
+                    }
+                    """),
+                source);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("[AutoDelegateName]")
+        .inFile(source)
+        .onLine(7)
+        .atColumn(39);
+    assertThat(compilation)
+        .hadErrorContaining("[AutoDelegateName]")
+        .inFile(source)
+        .onLine(8)
+        .atColumn(40);
+    assertThat(compilation)
+        .hadErrorContaining("[AutoDelegateName]")
+        .inFile(source)
+        .onLine(9)
+        .atColumn(41);
+  }
+
+  @Test
+  public void duplicate() {
+    var source =
+        JavaFileObjects.forSourceString(
+            "foo.bar.C",
+            """
+            package foo.bar;
+
+            import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
+
+            @AutoDelegate({
+                @Delegate(value = I.class, name = "i"),
+                @Delegate(value = I.class, name = "i2"),
+                @Delegate(value = II.class, name = "i")
+            })
+            class C extends AutoDelegate_C {
+              C(I i) {
+                super(i);
+              }
+            }
+            """);
+    var compilation =
+        javac()
+            .withProcessors(new AutoDelegateProcessor())
+            .compile(
+                JavaFileObjects.forSourceString(
+                    "foo.bar.I",
+                    """
+                    package foo.bar;
+
+                    interface I {
+                      void i();
+                    }
+                    """),
+                JavaFileObjects.forSourceString(
+                    "foo.bar.II",
+                    """
+                    package foo.bar;
+
+                    interface II {
+                      void ii();
+                    }
+                    """),
+                source);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("[AutoDelegateDuplicate]")
+        .inFile(source)
+        .onLine(8)
+        .atColumn(24);
+    assertThat(compilation)
+        .hadErrorContaining("[AutoDelegateDuplicate]")
+        .inFile(source)
+        .onLine(9)
+        .atColumn(40);
   }
 
   @Test
@@ -209,8 +346,9 @@ public class ErrorTest {
             package foo.bar;
 
             import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
-            @AutoDelegate(value = I.class, extend = S.class)
+            @AutoDelegate(value = @Delegate(value = I.class, name = "i"), extend = S.class)
             class C extends AutoDelegate_C {}
             """);
     var compilation =
@@ -238,8 +376,8 @@ public class ErrorTest {
     assertThat(compilation)
         .hadErrorContaining("[AutoDelegateExtend]")
         .inFile(source)
-        .onLine(5)
-        .atColumn(42);
+        .onLine(6)
+        .atColumn(73);
   }
 
   @Test
@@ -251,9 +389,10 @@ public class ErrorTest {
             package foo.bar;
 
             import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
             class Enclosing {
-              @AutoDelegate(I.class)
+              @AutoDelegate(@Delegate(value = I.class, name = "i"))
               private static class C {}
             }
             """);
@@ -274,7 +413,7 @@ public class ErrorTest {
     assertThat(compilation)
         .hadErrorContaining("[AutoDelegatePrivate]")
         .inFile(source)
-        .onLine(7)
+        .onLine(8)
         .atColumn(18);
   }
 
@@ -287,9 +426,10 @@ public class ErrorTest {
             package foo.bar;
 
             import net.ltgt.auto.delegate.AutoDelegate;
+            import net.ltgt.auto.delegate.AutoDelegate.Delegate;
 
             class Enclosing {
-              @AutoDelegate(I.class)
+              @AutoDelegate(@Delegate(value = I.class, name = "i"))
               class C {}
             }
             """);
@@ -310,7 +450,7 @@ public class ErrorTest {
     assertThat(compilation)
         .hadErrorContaining("[AutoDelegateInner]")
         .inFile(source)
-        .onLine(7)
+        .onLine(8)
         .atColumn(3);
   }
 }
